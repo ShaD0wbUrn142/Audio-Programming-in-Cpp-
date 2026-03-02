@@ -46,7 +46,7 @@ void write_16(std::ofstream &file, int16_t n)
 void write_32(std::ofstream &file, int32_t n)
 {
     char bytes[4];
-    bytes[0] = n & 0xFF;
+    bytes[0] = n & 0xFF; // & 0xFF performs a bitwise AND operation with the value 0xFF. Limit its value to the lowest 8 bits
     bytes[1] = (n >> 8) & 0xFF;
     bytes[2] = (n >> 16) & 0xFF;
     bytes[3] = (n >> 24) & 0xFF;
@@ -69,27 +69,30 @@ int main()
 
     if (!fs::exists(folder_path))
     {
-        std::cerr << "Error: There is no folder called " << folder_path << "\n";
+        std::cout << "Error: There is no folder called " << folder_path << "\n";
         exit;
     }
     fs::path full_path = folder_path / file_name;
 
     struct WavHeader wavh;
 
+    std::cout << "Setting duration, frequency and amplitude..." << "\n";
     // How long it should last
     const int duration_seconds = 10;
 
     // The different notes as frequencies
     const double frequency_d2 = 73.42;
     const double frequency_a2 = 110.00;
-    const double frequency_f3 = 174.61;
+    const double frequency_f3 = 185.00; // F sharp
     const double frequency_a3 = 220.00;
     const double frequency_c4 = 261.63;
-    const double frequency_e4 = 329.63;
+    const double frequency_e4 = 311.13; // E flat
+    // not a proper dm9 chord, I changed it to D7♭9
 
     const int amplitude = 10000; // 16-bit amplitude
 
     // buffering
+    std::cout << "Setting buffer size..." << "\n";
     const int buffer_size = wavh.sample_rate * duration_seconds;
     wavh.data_size = buffer_size * wavh.block_align;
     wavh.file_size = 36 + wavh.data_size;
@@ -97,8 +100,9 @@ int main()
     short int *buffer = new short int[buffer_size];
 
     // creating audio data
+    std::cout << "Creating audio data..." << "\n";
     double chord_frequencies[6] = {frequency_d2, frequency_a2, frequency_f3, frequency_a3, frequency_c4, frequency_e4};
-    int note_length = wavh.sample_rate / 4; // quarter-second per note
+    int note_length = wavh.sample_rate / 8; // one eighth-second per note
 
     for (int i = 0; i < buffer_size; i++)
     {
@@ -112,6 +116,7 @@ int main()
         buffer[i] = static_cast<short int>(sample_value * envelope);
     }
 
+    std::cout << "Writing header and audio data to file..." << "\n";
     std::ofstream wav(full_path, std::ios::binary);
     if ((wav.is_open()))
     {
@@ -139,8 +144,10 @@ int main()
 
         wav.close();
     }
-
+    std::cout << "Saved to file: " << full_path << "\n";
+    std::cout << "Deleting unused memory..." << "\n";
     delete[] buffer; // don't want to keep storing unused memory
 
+    std::cout << "Program complete..." << std::endl;
     return 0;
 }
