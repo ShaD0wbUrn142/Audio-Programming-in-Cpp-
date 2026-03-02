@@ -1,0 +1,40 @@
+/* Dm9 full chord
+    for (int i = 0; i < buffer_size; i++)
+    {
+        double progress = static_cast<double>(i) / buffer_size;
+
+        // Simple fade-in and fade-out
+        double envelope = (progress < 0.5) ? (progress * 2) : ((1.0 - progress) * 2);
+        envelope *= amplitude;
+
+        // Generate chord: D minor 9 (Dm9)
+        double sample_value = (sin(2.0 * M_PI * frequency_d2 * i / wavh.sample_rate) +
+                               sin(2.0 * M_PI * frequency_a2 * i / wavh.sample_rate) +
+                               sin(2.0 * M_PI * frequency_f3 * i / wavh.sample_rate) +
+                               sin(2.0 * M_PI * frequency_a3 * i / wavh.sample_rate) +
+                               sin(2.0 * M_PI * frequency_c4 * i / wavh.sample_rate) +
+                               sin(2.0 * M_PI * frequency_e4 * i / wavh.sample_rate)) /
+                              6.0;
+
+        buffer[i] = static_cast<short int>(sample_value * envelope); // add to buffer
+    }
+    */
+
+    /* old one with basic note
+    for (int i = 0; i < buffer_size; i++)
+    {
+        // buffer[i] = (short)(cos((2.0 * frequency * 256.0 * i) / wavh.sample_rate) * 10000);
+    }
+    */
+
+
+    // const double frequency = 261.63; // Hz test freq
+
+    // test chord:
+    // const double frequency_c = 261.63; // C4
+    // const double frequency_e = 329.63; // E4
+    // const double frequency_g = 392.00; // G4
+
+
+
+    I just wanted to save them somewhere
