@@ -24,7 +24,7 @@ struct WavHeader
     uint32_t format_data_length = 16; // PCM
     uint16_t format_type = 1;         // PCM
     uint16_t number_of_channels = 1;  // Mono
-    uint32_t sample_rate = 44100;
+    uint32_t sample_rate = 48000;
     uint32_t byte_rate = sample_rate * number_of_channels * 16 / 8;
     uint16_t block_align = number_of_channels * 16 / 8;
     uint16_t bits_per_sample = 16;
@@ -54,6 +54,15 @@ double triangle_wave(double phase)
 {
     return 2.0 * fabs(2.0 * phase - 1.0) - 1.0;
 }
+
+/*
+double testCOMBO(double phase, double mix = 0.5)
+{
+    double triangle = 2.0 * fabs(2.0 * phase - 1.0) - 1.0;
+    double square = (phase < 0.5) ? 1.0 : -1.0;
+    return triangle * mix + square * (1.0 - mix);
+}
+*/
 
 // forces little endian
 void write_16(std::ofstream &file, int16_t n)
@@ -99,40 +108,81 @@ int main()
 
     std::cout << "Setting duration, frequency and amplitude..." << "\n";
     // How long it should last
-    const int duration_seconds = 20;
-    const double chord_duration = 4; // 1 seconds per chord
+    const int duration_seconds = 24;
+
+    // Chords
+    const double chord_duration = 4; // 4 seconds per chord
     int samples_per_chord = wavh.sample_rate * chord_duration;
 
-    // notes needed for chords
+    // Melody
+    int melody_notes_per_chord = 8;                                           // 8 notes shall be played per chord
+    int samples_per_melody_note = samples_per_chord / melody_notes_per_chord; // 4 seconds / 8 notes = 0.5 seconds - quavers
+
+    // notes needed
     const double freq_A2 = 110.00;
     const double freq_C3 = 130.81;
+    const double freq_D3 = 146.83;
     const double freq_E3 = 164.81;
     const double freq_F3 = 174.61;
     const double freq_G3 = 196.00;
     const double freq_A3 = 220.00;
     const double freq_B3 = 246.94;
     const double freq_C4 = 261.63;
+    const double freq_D4 = 293.66;
+    const double freq_E4 = 329.63;
+    const double freq_G4 = 392.00;
 
-    // Am – Em – F – C progression
-    // Am (A C E)
-    double chord1[] = {freq_A2, freq_C3, freq_E3};
-
-    // Em (E G B)
-    double chord2[] = {freq_E3, freq_G3, freq_B3};
-
-    // F (F A C)
-    double chord3[] = {freq_F3, freq_A3, freq_C4};
+    // CHORDS
+    // Happy progression: C – G – Am – F – C
 
     // C (C E G)
-    double chord4[] = {freq_C3, freq_E3, freq_G3};
+    double chord1[] = {freq_C3, freq_E3, freq_G3};
 
-    // all our chords
-    double *chords[] = {chord1, chord2, chord3, chord4};
-    int chord_sizes[] = {3, 3, 3, 3}; // triads
-    int total_chords = 4;             // number of chords
+    // G (G B D)
+    double chord2[] = {freq_G3, freq_B3, freq_D4};
 
-    int notes_per_chord = 3; // triads
-    int samples_per_note = samples_per_chord / notes_per_chord;
+    // Am (A C E)
+    double chord3[] = {freq_A2, freq_C3, freq_E3};
+
+    // F (F A C)
+    double chord4[] = {freq_F3, freq_A3, freq_C4};
+
+    // C (final resolution)
+    double chord5[] = {freq_C3, freq_E3, freq_G3};
+
+    // All chords
+    double *chords[] = {chord1, chord2, chord3, chord4, chord5};
+    int chord_sizes[] = {3, 3, 3, 3, 3};
+    int total_chords = 5;
+
+    // MELODY
+    // Over C
+    double melody1[] = {
+        freq_E4, freq_G4, freq_E4, freq_C4,
+        freq_D4, freq_E4, freq_G4, freq_E4};
+
+    // Over G
+    double melody2[] = {
+        freq_G4, freq_D4, freq_B3, freq_G3,
+        freq_B3, freq_D4, freq_G4, freq_D4};
+
+    // Over Am
+    double melody3[] = {
+        freq_E4, freq_C4, freq_A3, freq_C4,
+        freq_E4, freq_D4, freq_C4, freq_A3};
+
+    // Over F
+    double melody4[] = {
+        freq_A3, freq_C4, freq_F3, freq_A3,
+        freq_C4, freq_D4, freq_C4, freq_A3};
+
+    // Over final C
+    double melody5[] = {
+        freq_G4, freq_E4, freq_C4, freq_E4,
+        freq_G4, freq_E4, freq_D4, freq_C4};
+
+    // All our melodies
+    double *melodies[] = {melody1, melody2, melody3, melody4, melody5};
 
     const int amplitude = 9000;
 
@@ -145,68 +195,60 @@ int main()
     short int *buffer = new short int[buffer_size];
 
     // Phase
-    double phase[3] = {0.0};          // Initialize phase for up to 5 notes
+    double phase[3] = {0.0};          // Initialize phase for up to 3 notes
     double phaseIncrement[3] = {0.0}; // Phase increment per note (determines frequency step per sample)
+    double melody_phase = 0.0;
 
     for (int i = 0; i < buffer_size; i++)
     {
-        /*
-        int chord_index = (i / samples_per_chord) % total_chords;
-        int chord_sample_index = i % samples_per_chord;
-
-        // Determine which note of the chord is active
-        int note_index = (chord_sample_index / samples_per_note) % notes_per_chord;
-
-        // Position within the current note
-        int note_sample_index = chord_sample_index % samples_per_note;
-
-        double note_progress = note_sample_index / (double)samples_per_note;
-
-        // Per-note envelope (smooth pluck style)
-        double envelope = sin(note_progress * M_PI);
-
-        double freq = chords[chord_index][note_index];
-
-        // Use only one phase accumulator for arpeggio
-        phaseIncrement[0] = freq / wavh.sample_rate;
-
-        double sample = triangle_wave(phase[0]);
-
-        phase[0] += phaseIncrement[0];
-        if (phase[0] >= 1.0)
-            phase[0] -= 1.0;
-
-        sample *= envelope;
-        sample *= amplitude;
-
-        buffer[i] = static_cast<short>(sample);*/
-
+        // Chord
         int chord_index = (i / samples_per_chord) % total_chords; // Determine which chord is currently playing
         int chord_sample_index = i % samples_per_chord;           // Position within the current chord's duration
 
-        double note_progress = chord_sample_index / (double)samples_per_chord; // Normalized progress (0.0 to 1.0) of the note
+        // Melody
+        int melody_note_index = chord_sample_index / samples_per_melody_note; // Position within the melody
+        if (melody_note_index >= melody_notes_per_chord)                      // integer division rounding may cause error, so we clamp it
+            melody_note_index = melody_notes_per_chord - 1;
 
-        double envelope = sin(note_progress * M_PI); // Simple amplitude envelope: rises and falls smoothly like a sine
+        double melody_freq = melodies[chord_index][melody_note_index];
+
+        double chord_progress = chord_sample_index / (double)samples_per_chord; // Normalized progress (0.0 to 1.0) of the note
+
+        double envelope = sin(chord_progress * M_PI); // Simple amplitude envelope: rises and falls smoothly like a sine
 
         double sample = 0.0;                   // Initialize output sample for this frame
         int voices = chord_sizes[chord_index]; // Number of notes in the current chord
 
         for (int n = 0; n < voices; n++) // Loop through each note in the chord
         {
+            // Chord
             double freq = chords[chord_index][n]; // Get the frequency of this note
 
             phaseIncrement[n] = freq / wavh.sample_rate; // Calculate how much to advance the phase for this note
 
-            sample += triangle_wave(phase[n]); // Generate sine wave for this note and add to the sample
+            sample += sine_wave(phase[n]); // Generate sine wave for this note and add to the sample
 
             phase[n] += phaseIncrement[n]; // Increment phase for next sample
             if (phase[n] >= 1.0)           // Wrap phase around to stay in [0,1)
                 phase[n] -= 1.0;
         }
 
-        sample /= voices; // Average all notes to prevent clipping
+        sample /= voices; // average chord voices
 
-        sample *= envelope;  // Apply the envelope to shape the amplitude
+        // Melody
+        double melody_increment = melody_freq / wavh.sample_rate;
+        double melody_sample = triangle_wave(melody_phase);
+
+        melody_phase += melody_increment;
+        if (melody_phase >= 1.0)
+            melody_phase -= 1.0;
+
+        // Apply envelope to chords only
+        double chord_sample = sample * envelope;
+
+        // Mix chord + melody
+        sample = (chord_sample + melody_sample) / 2.0;
+
         sample *= amplitude; // Scale the final sample by overall amplitude
 
         buffer[i] = static_cast<short>(sample); // Store sample in buffer (casting to 16-bit PCM)
